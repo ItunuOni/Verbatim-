@@ -304,7 +304,7 @@ export default function Dashboard() {
         <div className="max-w-5xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-            <p className="text-foreground/60">
+            <p className="text-foreground/70">
               Upload your audio or video files to transcribe and generate voice-overs.
             </p>
           </div>

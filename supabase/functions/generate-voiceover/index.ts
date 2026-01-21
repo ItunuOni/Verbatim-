@@ -24,11 +24,11 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
-      throw new Error("AI service not configured");
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is not configured");
+      throw new Error("Gemini API key not configured");
     }
 
     const { text, emotion = 'neutral', language = 'English' } = await req.json();
@@ -64,39 +64,38 @@ Transform the provided text into a professional voice-over script with:
 
 Make the script feel natural and emotionally authentic for the ${emotion} style.`;
 
-    console.log("Sending request to Lovable AI Gateway...");
+    console.log("Sending request to Gemini API...");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
+        contents: [
           {
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: `Please prepare this text for ${emotion} voice-over in ${language}:\n\n${text}`
+            parts: [
+              {
+                text: systemPrompt + `\n\nPlease prepare this text for ${emotion} voice-over in ${language}:\n\n${text}`
+              }
+            ]
           }
         ],
-        max_tokens: 8000,
-        temperature: 0.7
+        generationConfig: {
+          maxOutputTokens: 8000,
+          temperature: 0.7
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`AI Gateway error: ${response.status} - ${errorText}`);
+      console.error(`Gemini API error: ${response.status} - ${errorText}`);
       throw new Error(`AI processing failed: ${response.status}`);
     }
 
     const data = await response.json();
-    const voiceoverScript = data.choices?.[0]?.message?.content;
+    const voiceoverScript = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!voiceoverScript) {
       console.error("No voiceover script in response:", JSON.stringify(data));

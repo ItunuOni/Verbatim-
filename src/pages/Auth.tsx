@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Mail, Lock, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
+import verbatimLogo from '@/assets/verbatim-logo.png';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -118,14 +119,16 @@ export default function Auth() {
           Back to home
         </Link>
 
-        <div className="text-center space-y-2">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center glow-primary">
-              <span className="text-primary-foreground font-bold text-2xl">V</span>
-            </div>
+        <div className="text-center space-y-4">
+          <div className="flex justify-center mb-6">
+            <img 
+              src={verbatimLogo} 
+              alt="Verbatim Logo" 
+              className="h-16 w-auto object-contain drop-shadow-lg"
+            />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome to Verbatim</h1>
-          <p className="text-muted-foreground">Sign in to start transcribing</p>
+          <p className="text-foreground/70">Sign in to start transcribing</p>
         </div>
 
         <Card variant="glass" className="shadow-2xl">
