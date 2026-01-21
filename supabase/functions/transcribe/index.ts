@@ -12,11 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
-      throw new Error("AI service not configured");
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is not configured");
+      throw new Error("Gemini API key not configured");
     }
 
     const formData = await req.formData();
@@ -72,51 +72,45 @@ Format the output as:
 [translated content]`;
     }
 
-    console.log("Sending request to Lovable AI Gateway...");
+    console.log("Sending request to Gemini API...");
 
-    // Call Lovable AI Gateway with multimodal content
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call Google Gemini API directly
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
+        contents: [
           {
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: [
+            parts: [
               {
-                type: "text",
-                text: "Please transcribe the following audio/video content:"
+                text: systemPrompt + "\n\nPlease transcribe the following audio/video content:"
               },
               {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Data}`
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
                 }
               }
             ]
           }
         ],
-        max_tokens: 16000,
-        temperature: 0.1
+        generationConfig: {
+          maxOutputTokens: 16000,
+          temperature: 0.1
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`AI Gateway error: ${response.status} - ${errorText}`);
+      console.error(`Gemini API error: ${response.status} - ${errorText}`);
       throw new Error(`AI processing failed: ${response.status}`);
     }
 
     const data = await response.json();
-    const transcription = data.choices?.[0]?.message?.content;
+    const transcription = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!transcription) {
       console.error("No transcription in response:", JSON.stringify(data));

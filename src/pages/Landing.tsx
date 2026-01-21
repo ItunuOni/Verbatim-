@@ -60,9 +60,18 @@ export default function Landing() {
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto text-center">
+          {/* Hero Logo */}
+          <div className="flex justify-center mb-8 animate-fade-in">
+            <img 
+              src={verbatimLogo} 
+              alt="Verbatim" 
+              className="h-20 sm:h-24 w-auto object-contain drop-shadow-2xl"
+            />
+          </div>
+          
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass glass-border mb-8 animate-fade-in">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-foreground/80">Powered by Google Gemini AI</span>
+            <span className="text-sm font-medium text-foreground">Powered by Google Gemini AI</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-fade-in-up">
@@ -71,7 +80,7 @@ export default function Landing() {
             <span className="text-gradient-primary">Barriers</span>
           </h1>
 
-          <p className="text-xl text-foreground/70 max-w-2xl mx-auto mb-10 animate-fade-in-up leading-relaxed" style={{ animationDelay: '0.1s' }}>
+          <p className="text-xl text-foreground/80 max-w-2xl mx-auto mb-10 animate-fade-in-up leading-relaxed" style={{ animationDelay: '0.1s' }}>
             Transform your audio and video content into accurate transcriptions 
             and translations. Reach a global audience in minutes, not days.
           </p>
@@ -91,7 +100,7 @@ export default function Landing() {
 
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
             {benefits.map((benefit) => (
-              <div key={benefit} className="flex items-center gap-2 text-sm font-medium text-foreground/70">
+              <div key={benefit} className="flex items-center gap-2 text-sm font-medium text-foreground/80">
                 <CheckCircle2 className="w-4 h-4 text-success" />
                 {benefit}
               </div>
@@ -107,7 +116,7 @@ export default function Landing() {
             <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
               Everything You Need
             </h2>
-            <p className="text-lg text-foreground/60 max-w-2xl mx-auto">
+            <p className="text-lg text-foreground/70 max-w-2xl mx-auto">
               Professional-grade localization tools that scale with your content needs.
             </p>
           </div>
@@ -123,7 +132,7 @@ export default function Landing() {
                   <feature.icon className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2 text-foreground">{feature.title}</h3>
-                <p className="text-sm text-foreground/60 leading-relaxed">{feature.description}</p>
+                <p className="text-sm text-foreground/70 leading-relaxed">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -139,7 +148,7 @@ export default function Landing() {
               <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
                 Ready to Go Global?
               </h2>
-              <p className="text-lg text-foreground/60 mb-8 max-w-xl mx-auto">
+              <p className="text-lg text-foreground/70 mb-8 max-w-xl mx-auto">
                 Join thousands of creators who trust Verbatim for their content localization.
               </p>
               <Link to="/auth">
