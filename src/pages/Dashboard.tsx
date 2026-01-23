@@ -79,6 +79,12 @@ export default function Dashboard() {
   }, []);
 
   const handleFileSelect = (file: File) => {
+    console.log('File selected:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    });
+
     if (file.size > MAX_FILE_SIZE) {
       toast.error(`File too large. Maximum size is 500MB.`);
       return;
@@ -86,10 +92,11 @@ export default function Dashboard() {
 
     const validTypes = [
       'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a', 'audio/aac',
-      'video/mp4', 'video/webm', 'video/quicktime', 'audio/ogg', 'video/ogg'
+      'video/mp4', 'video/webm', 'video/quicktime', 'audio/ogg', 'video/ogg',
+      'video/x-matroska'
     ];
 
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|mp4|wav|m4a|aac|webm|mov|ogg)$/i)) {
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|mp4|wav|m4a|aac|webm|mov|mkv|ogg)$/i)) {
       toast.error('Invalid file type. Please upload an audio or video file.');
       return;
     }
@@ -111,6 +118,7 @@ export default function Dashboard() {
     if (!selectedFile) return;
 
     try {
+      console.log('Upload started...');
       setStatus('uploading');
       
       const formData = new FormData();
@@ -133,12 +141,30 @@ export default function Dashboard() {
         }
       );
 
+      const responseContentType = response.headers.get('content-type') || '';
+      const responseBody = responseContentType.includes('application/json')
+        ? await response.json().catch(() => null)
+        : await response.text().catch(() => '');
+
+      console.log('Server Response:', {
+        status: response.status,
+        ok: response.ok,
+        contentType: responseContentType,
+        body: responseBody,
+      });
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Transcription failed');
+        const messageFromBody =
+          typeof responseBody === 'string'
+            ? responseBody
+            : (responseBody as any)?.error || (responseBody as any)?.message;
+
+        const trimmed = (messageFromBody || '').toString().trim();
+        const message = trimmed || 'Transcription failed';
+        throw new Error(`[${response.status}] ${message}`);
       }
 
-      const data = await response.json();
+      const data = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
       
       if (targetLanguage) {
         setStatus('translating');
@@ -324,7 +350,7 @@ export default function Dashboard() {
               >
                 <input
                   type="file"
-                  accept="audio/*,video/*,.mp3,.mp4,.wav,.m4a,.webm,.mov,.ogg"
+                  accept="audio/*,video/*,.mp3,.wav,.mp4,.mov,.mkv,.webm,.ogg"
                   onChange={handleInputChange}
                   className="hidden"
                   id="file-upload"

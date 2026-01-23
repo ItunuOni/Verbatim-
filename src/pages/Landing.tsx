@@ -9,7 +9,8 @@ import {
   Languages, 
   Sparkles,
   CheckCircle2,
-  Mic
+  Mic,
+  Wand2
 } from 'lucide-react';
 import verbatimLogo from '@/assets/verbatim-logo.png';
 
@@ -28,6 +29,11 @@ const features = [
     icon: Mic,
     title: 'Voice-Over Generation',
     description: 'Generate professional voice-overs with emotional control and customization.',
+  },
+  {
+    icon: Wand2,
+    title: 'Smart Content Repurposing',
+    description: 'Instantly generate blog posts, social media captions, and summaries from your localized content.',
   },
   {
     icon: Zap,
@@ -145,10 +151,10 @@ export default function Landing() {
           <div className="p-12 rounded-3xl gradient-card glass-border relative overflow-hidden">
             <div className="absolute inset-0 gradient-hero opacity-50" />
             <div className="relative z-10">
-              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-primary-foreground">
                 Ready to Go Global?
               </h2>
-              <p className="text-lg text-foreground/70 mb-8 max-w-xl mx-auto">
+              <p className="text-lg text-primary-foreground/80 mb-8 max-w-xl mx-auto">
                 Join thousands of creators who trust Verbatim for their content localization.
               </p>
               <Link to="/auth">
