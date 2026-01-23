@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navbar } from '@/components/Navbar';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { 
   Loader2, 
   Upload, 
@@ -15,10 +16,10 @@ import {
   Languages,
   X
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { extractAudioFromVideoToWavFile, isLikelyVideoFile } from '@/lib/media';
 
-type ProcessingStatus = 'idle' | 'uploading' | 'transcribing' | 'translating' | 'generating-voiceover' | 'complete' | 'error';
+type ProcessingStatus = 'idle' | 'extracting' | 'uploading' | 'transcribing' | 'translating' | 'generating-voiceover' | 'complete' | 'error';
 
 const emotions = [
   { id: 'neutral', label: 'Neutral', emoji: '😐' },
@@ -51,6 +52,23 @@ export default function Dashboard() {
   const [targetLanguage, setTargetLanguage] = useState<string>('');
   const [selectedEmotion, setSelectedEmotion] = useState<string>('neutral');
   const [activeTab, setActiveTab] = useState<'transcription' | 'voiceover'>('transcription');
+  const [progressPct, setProgressPct] = useState<number>(0);
+  const extractionProgressTimerRef = useRef<number | null>(null);
+
+  const setProgressSafe = (value: number | ((prev: number) => number)) => {
+    setProgressPct((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      return Math.max(0, Math.min(100, next));
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (extractionProgressTimerRef.current) {
+        window.clearInterval(extractionProgressTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -105,6 +123,7 @@ export default function Dashboard() {
     setTranscription('');
     setVoiceoverScript('');
     setStatus('idle');
+    setProgressSafe(0);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,32 +133,84 @@ export default function Dashboard() {
     }
   };
 
+  const startExtractionProgress = () => {
+    // Extraction progress is not reliably measurable in the browser; we animate a capped ramp.
+    setProgressSafe((p) => Math.max(p, 2));
+    if (extractionProgressTimerRef.current) {
+      window.clearInterval(extractionProgressTimerRef.current);
+    }
+    extractionProgressTimerRef.current = window.setInterval(() => {
+      setProgressSafe((p) => {
+        // Cap at 25% while extracting
+        if (p >= 25) return 25;
+        return p + Math.max(1, Math.round((25 - p) * 0.08));
+      });
+    }, 200);
+  };
+
+  const stopExtractionProgress = () => {
+    if (extractionProgressTimerRef.current) {
+      window.clearInterval(extractionProgressTimerRef.current);
+      extractionProgressTimerRef.current = null;
+    }
+  };
+
+  const uploadWithProgress = async (fileToUpload: File, targetLang: string) => {
+    const formData = new FormData();
+    formData.append('file', fileToUpload);
+    if (targetLang) formData.append('targetLanguage', targetLang);
+
+    return await new Promise<Response>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`, true);
+      xhr.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+      xhr.setRequestHeader('Authorization', `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`);
+
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        const uploadPct = (e.loaded / e.total) * 70; // 30% already reserved for extraction
+        setProgressSafe(30 + uploadPct);
+      };
+
+      xhr.onload = () => resolve(new Response(xhr.responseText, {
+        status: xhr.status,
+        statusText: xhr.statusText,
+        headers: {
+          'content-type': xhr.getResponseHeader('content-type') || 'text/plain'
+        }
+      }));
+      xhr.onerror = () => reject(new Error('Network error while uploading'));
+      xhr.onabort = () => reject(new Error('Upload aborted'));
+      xhr.send(formData);
+    });
+  };
+
   const processFile = async () => {
     if (!selectedFile) return;
 
     try {
       console.log('Upload started...');
-      setStatus('uploading');
-      
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      if (targetLanguage) {
-        formData.append('targetLanguage', targetLanguage);
+      setProgressSafe(0);
+
+      let fileToUpload: File = selectedFile;
+
+      if (isLikelyVideoFile(selectedFile)) {
+        setStatus('extracting');
+        startExtractionProgress();
+        console.log('Extracting audio in browser...');
+        fileToUpload = await extractAudioFromVideoToWavFile(selectedFile);
+        stopExtractionProgress();
+        setProgressSafe(30);
+      } else {
+        // audio: skip extraction (start upload at 30% so the combined bar still feels consistent)
+        setProgressSafe(30);
       }
 
-      setStatus('transcribing');
+      setStatus('uploading');
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: formData,
-        }
-      );
+      const response = await uploadWithProgress(fileToUpload, targetLanguage);
+
+      setStatus('transcribing');
 
       const responseContentType = response.headers.get('content-type') || '';
       const responseBody = responseContentType.includes('application/json')
@@ -165,6 +236,7 @@ export default function Dashboard() {
       }
 
       const data = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+      setProgressSafe(100);
       
       if (targetLanguage) {
         setStatus('translating');
@@ -178,6 +250,7 @@ export default function Dashboard() {
 
     } catch (error) {
       console.error('Processing error:', error);
+      stopExtractionProgress();
       setStatus('error');
       toast.error(error instanceof Error ? error.message : 'Failed to process file');
     }
@@ -236,7 +309,7 @@ export default function Dashboard() {
     let counter = 1;
     let currentTime = 0;
 
-    lines.forEach((line, index) => {
+    lines.forEach((line) => {
       const startTime = formatSRTTime(currentTime);
       currentTime += Math.max(3, Math.ceil(line.length / 20)); // Estimate based on text length
       const endTime = formatSRTTime(currentTime);
@@ -285,10 +358,13 @@ export default function Dashboard() {
     setTranscription('');
     setVoiceoverScript('');
     setStatus('idle');
+    setProgressSafe(0);
   };
 
   const getStatusDisplay = () => {
     switch (status) {
+      case 'extracting':
+        return { text: 'Extracting audio in browser...', color: 'text-primary' };
       case 'uploading':
         return { text: 'Uploading...', color: 'text-primary' };
       case 'transcribing':
@@ -418,17 +494,28 @@ export default function Dashboard() {
 
                 {/* Status Bar */}
                 {statusDisplay && status !== 'idle' && (
-                  <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 border border-border">
-                    {status === 'complete' ? (
-                      <CheckCircle2 className="w-5 h-5 text-success" />
-                    ) : status === 'error' ? (
-                      <AlertCircle className="w-5 h-5 text-destructive" />
-                    ) : (
-                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                    )}
-                    <span className={`font-medium ${statusDisplay.color}`}>
-                      {statusDisplay.text}
-                    </span>
+                  <div className="p-4 rounded-lg bg-muted/30 border border-border space-y-3">
+                    <div className="flex items-center gap-3">
+                      {status === 'complete' ? (
+                        <CheckCircle2 className="w-5 h-5 text-success" />
+                      ) : status === 'error' ? (
+                        <AlertCircle className="w-5 h-5 text-destructive" />
+                      ) : (
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      )}
+                      <span className={`font-medium ${statusDisplay.color}`}>
+                        {statusDisplay.text}
+                      </span>
+                      <span className="ml-auto text-sm text-foreground/70 tabular-nums">
+                        {Math.round(progressPct)}%
+                      </span>
+                    </div>
+                    <Progress value={progressPct} className="h-2" />
+                    <p className="text-xs text-foreground/60">
+                      {status === 'extracting'
+                        ? 'Converting video → audio locally (no upload yet)'
+                        : 'Uploading audio only for faster processing'}
+                    </p>
                   </div>
                 )}
 
